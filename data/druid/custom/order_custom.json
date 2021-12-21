@@ -1,0 +1,70 @@
+{
+  "type": "kafka",
+  "spec": {
+    "ioConfig": {
+      "type": "kafka",
+      "consumerProperties": {
+        "bootstrap.servers": "broker-1:9092",
+        "isolation.level": "read_committed"
+      },
+      "topic": "ORDERS_ENRICHED",
+      "inputFormat": {
+        "type": "json"
+      },
+      "useEarliestOffset": true,
+      "pollTimeout": 100,
+      "period": "PT30S",
+      "taskCount": 1
+    },
+    "tuningConfig": {
+      "type": "kafka",
+      "maxRowsInMemory": 10000,
+      "maxRowsPerSegment": 50000,
+      "maxTotalRows": 200000
+    },
+    "dataSchema": {
+      "dataSource": "orders_custom",
+      "timestampSpec": {
+        "column": "ORDER_TS",
+        "format": "auto"
+      },
+      "dimensionsSpec": {
+        "dimensions": [
+          "USER_REWARD"
+        ]
+      },
+      "metricsSpec": [
+        {
+          "type": "count",
+          "name": "COUNT"
+        },
+        {
+          "type": "longSum",
+          "name": "QUANTITY",
+          "fieldName": "QUANTITY"
+        }
+      ],
+      "granularitySpec": {
+        "type": "uniform",
+        "segmentGranularity": "fifteen_minute",
+        "queryGranularity": null,
+        "rollup": true,
+        "intervals": null
+      },
+      "transformSpec": {
+        "transforms": [
+          {
+            "type": "expression",
+            "name": "USER_PHONE_NUMBER",
+            "expression" : "substring(USER_PHONE_NUMBER, 0, 3)"
+          },
+          {
+            "type": "expression",
+            "name": "__time",
+            "expression": "if(timestamp_extract(\"__time\", 'MINUTE') % 2, \"__time\" / 1000 * 1000, \"__time\" / 5000 * 5000)"
+          }
+        ]
+      }
+    }
+  }
+}

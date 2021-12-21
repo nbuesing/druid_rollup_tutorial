@@ -1,0 +1,291 @@
+---
+version: '3.7'
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  # zookeeper
+  zk: {}
+  zk_log: {}
+  zk_secrets: {}
+  # kafka
+  broker_kafka_data: {}
+  connect_kafka_data: {}
+  connect_secrets: {}
+  connect_data: {}
+  kafka_secrets: {}
+  ksql_data: {}
+  # druid
+  postgres: {}
+  coordinator_var: {}
+  broker_var: {}
+  historical_var: {}
+  middlemanager_var: {}
+  router_var: {}
+  shared: {}
+
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    hostname: zookeeper
+    container_name: drt_zookeeper
+    healthcheck:
+      test: echo ruok | nc -w 2 localhost 2181 | grep imok
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat"
+    volumes:
+      - zk:/var/lib/zookeeper/data
+      - zk_log:/var/lib/zookeeper/log
+      - zk_secrets:/etc/zookeeper/secrets
+
+  broker-1:
+    image: confluentinc/cp-kafka:7.0.1
+    hostname: broker-1
+    container_name: drt_broker-1
+    stop_grace_period: 120s
+    healthcheck:
+      test: nc -z localhost 9092 || exit 1
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - '9094:9094'
+    volumes:
+      - broker_kafka_data:/var/lib/kafka/data
+      - kafka_secrets:/etc/kafka/secrets
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181/kafka_cluster'
+      KAFKA_SECURITY_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker-1:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_NUM_PARTITIONS: 4
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 500
+      KAFKA_METRIC_REPORTERS:
+      CONFLUENT_METRICS_ENABLE: 'false'
+
+  connect:
+    image: confluentinc/cp-kafka-connect:7.0.1
+    hostname: connect
+    container_name: drt_connect
+    depends_on:
+      broker-1:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    volumes:
+      - connect_kafka_data:/var/lib/kafka/data
+      - kafka_secrets:/etc/kafka/secrets
+      - connect_secrets:/etc/kafka-connect/secrets
+      - connect_data:/data:rwx
+    command: 
+      - bash 
+      - -c 
+      - |
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.5.0 
+        /etc/confluent/docker/run &
+        sleep infinity
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'broker-1:9092'
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: 'connect-cluster'
+      CONNECT_CONFIG_STORAGE_TOPIC: 'connect-cluster-config'
+      CONNECT_OFFSET_STORAGE_TOPIC: 'connect-cluster-offsets'
+      CONNECT_STATUS_STORAGE_TOPIC: 'connect-cluster-status'
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_CONFIG_PROVIDERS: file
+      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: 'org.apache.kafka.common.config.provider.FileConfigProvider'
+      CONNECT_KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_INTERNAL_KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_INTERNAL_VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
+      CONNECT_REST_ADVERTISED_HOST_NAME: 'connect'
+      CONNECT_PLUGIN_PATH: '/usr/share/java,/usr/share/confluent-hub-components/'
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+
+  ksql-server:
+    image: confluentinc/ksqldb-server:0.23.1
+    hostname: ksql-server
+    container_name: drt_ksql-server
+    healthcheck:
+      test: curl -f http://localhost:8088/healthcheck || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      broker-1:
+        condition: service_healthy
+    ports:
+      - '8088:8088'
+    volumes:
+      - ksql_data:/data:rwx
+    environment:
+      KSQL_HOST_NAME: ksql-server
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_APPLICATION_ID: "ksql-server"
+      KSQL_UDFS_ENABLED: 'false'
+      KSQL_KSQL_METRICS_RECORDING_LEVEL_CONFIG: TRACE
+      KSQL_BOOTSTRAP_SERVERS: "broker-1:9092"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_LOG4J_ROOT_LOGLEVEL: DEBUG
+      KSQL_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+      KSQL_LOG4J_PROCESSING_LOG_BROKERLIST: broker-1:9092
+      KSQL_TOOLS_LOG4J_LOGLEVEL: DEBUG
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_PRODUCER_INTERCEPTOR_CLASSES:
+      KSQL_CONSUMER_INTERCEPTOR_CLASSES:
+      KSQL_KSQL_FAIL_ON_DESERIALIZATION_ERROR: "true"
+      KSQL_KSQL_STREAMS_COMMIT_INTERVAL_MS: 8000
+      KSQL_KSQL_STREAMS_PROCESSING_GUARANTEE: at_least_once
+
+  #
+  # DRUID
+  #
+
+  druid-postgres:
+    image: postgres:latest
+    hostname: druid-postgres
+    container_name: drt_druid-postgres
+    healthcheck:
+      test: pg_isready -U druid
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: FoolishPassword
+      POSTGRES_USER: druid
+      POSTGRES_DB: druid
+
+  druid-coordinator:
+    image: apache/druid:0.22.1
+    hostname: druid-coordinator
+    container_name: drt_druid-coordinator
+    healthcheck:
+      test: wget --spider http://localhost:8081/status/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - coordinator_var:/opt/druid/var
+      - shared:/opt/shared
+    depends_on:
+      - zookeeper
+      - druid-postgres
+    command:
+      - coordinator
+    env_file:
+      - druid.env
+
+  druid-broker:
+    image: apache/druid:0.22.1
+    hostname: druid-broker
+    container_name: drt_druid-broker
+    healthcheck:
+      test: wget --spider http://localhost:8082/status/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - broker_var:/opt/druid/var
+    depends_on:
+      - zookeeper
+      - druid-postgres
+      - druid-coordinator
+    command:
+      - broker
+    env_file:
+      - druid.env
+
+  druid-historical:
+    image: apache/druid:0.22.1
+    hostname: druid-historical
+    container_name: drt_druid-historical
+    healthcheck:
+      test: wget --spider http://localhost:8083/druid/historical/v1/readiness || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - historical_var:/opt/druid/var
+      - shared:/opt/shared
+    depends_on:
+      - zookeeper
+      - druid-postgres
+      - druid-coordinator
+    command:
+      - historical
+    env_file:
+      - druid.env
+
+  druid-middlemanager:
+    image: apache/druid:0.22.1
+    hostname: druid-middlemanager
+    container_name: drt_druid-middlemanager
+    healthcheck:
+      test: wget --spider http://localhost:8091/status/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - middlemanager_var:/opt/druid/var
+      - shared:/opt/shared
+    depends_on:
+      - zookeeper
+      - druid-postgres
+      - druid-coordinator
+    command:
+      - middleManager
+    env_file:
+      - druid.env
+
+  druid-router:
+    image: apache/druid:0.22.1
+    hostname: druid-router
+    container_name: drt_druid-router
+    healthcheck:
+      test: wget --spider http://localhost:8888/status/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - router_var:/opt/druid/var
+    depends_on:
+      - zookeeper
+      - druid-postgres
+      - druid-coordinator
+    ports:
+      - "8888:8888"
+    command:
+      - router
+    env_file:
+      - druid.env
