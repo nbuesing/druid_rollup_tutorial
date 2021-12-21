@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# For formatting JSON, jq is a great command line tool and is located at https://stedolan.github.io/jq
+#Python's json.tool does a good job, but doesn't colorized like jq can.
+if [ -x "$(command -v jq)" ]; then
+  FORMATTER=jq
+elif [ -x "$(command -v python)" ]; then
+  if python -c "import json.tool" >/dev/null 2>&1; then
+    FORMATTER='python -m json.tool'
+  else
+    FORMATTER="cat"
+  fi
+else
+  FORMATTER="cat"
+fi
+
+
+if [ $# -eq 0 ]; then
+  echo "usage: $0 file"
+  exit
+fi
+
+FILE=$1
+shift
+
+if [ ! -f "$FILE" ]; then
+ echo "$FILE does not exist or is not a file"
+ exit
+fi
+
+SQL=$(cat <<EOF
+{
+  "query" : "$(cat $FILE | tr "\n" " " | sed -e 's/\"/\\\"/g')"
+}
+EOF
+)
+
+curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
