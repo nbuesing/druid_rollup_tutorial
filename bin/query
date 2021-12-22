@@ -1,18 +1,11 @@
 #!/bin/bash
 
-# For formatting JSON, jq is a great command line tool and is located at https://stedolan.github.io/jq
-#Python's json.tool does a good job, but doesn't colorized like jq can.
-if [ -x "$(command -v jq)" ]; then
-  FORMATTER=jq
-elif [ -x "$(command -v python)" ]; then
-  if python -c "import json.tool" >/dev/null 2>&1; then
-    FORMATTER='python -m json.tool'
-  else
-    FORMATTER="cat"
-  fi
+if [ -x "$(command -v column)" ]; then
+  FORMATTER="column -s, -t"
 else
   FORMATTER="cat"
 fi
+
 
 
 if [ $# -eq 0 ]; then
@@ -28,11 +21,28 @@ if [ ! -f "$FILE" ]; then
  exit
 fi
 
+#OUTPUT_FORMAT=object
+#OUTPUT_FORMAT=array
+#OUTPUT_FORMAT=objectLines
+#OUTPUT_FORMAT=arrayLines
+OUTPUT_FORMAT=csv
+
 SQL=$(cat <<EOF
 {
-  "query" : "$(cat $FILE | tr "\n" " " | sed -e 's/\"/\\\"/g')"
+  "query" : "$(cat $FILE | tr "\n" " " | sed -e 's/\"/\\\"/g')",
+  "resultFormat" : "$OUTPUT_FORMAT",
+  "header" : true
 }
 EOF
 )
 
+echo ""
+cat $FILE
+echo ""
+echo ""
 curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
+
+
+
+#curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
+#curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | jq -r '.[] | [.USER_REWARD] | @csv' | awk -v FS="," 'BEGIN{print "ID\tName";print "============"}{printf "%s\t%s%s",$1,$2,ORS}'

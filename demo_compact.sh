@@ -1,5 +1,17 @@
 #!/bin/bash
 
+if [ -x "$(command -v jq)" ]; then
+  FORMATTER=jq
+elif [ -x "$(command -v python)" ]; then
+  if python -c "import json.tool" >/dev/null 2>&1; then
+    FORMATTER='python -m json.tool'
+  else
+    FORMATTER="cat"
+  fi
+else
+  FORMATTER="cat"
+fi
+
 DIR=$(dirname "$0")
 cd "$DIR" || exit
 
@@ -7,11 +19,20 @@ case "$1" in
 start)
   COMMAND=start
   ;;
+query)
+  COMMAND=query
+  ;;
 shutdown)
   COMMAND=shutdown
   ;;
+status)
+  COMMAND=status
+  ;;
 *)
-  COMMAND=start
+  echo ""
+  echo "usage: $0 {start|query|shutdown}"
+  echo ""
+  exit
   ;;
 esac
 
@@ -34,4 +55,11 @@ elif [ "$COMMAND" == "shutdown" ]; then
         curl -s -X POST -H "Content-Type:application/json"  http://localhost:8888/druid/indexer/v1/supervisor/${i}/reset
         curl -s -X POST -H "Content-Type:application/json"  http://localhost:8888/druid/indexer/v1/supervisor/${i}/shutdown
   done
+elif [ "$COMMAND" == "status" ]; then
+  for i in "${DATASOURCES[@]}"; do
+        curl -s -X GET http://localhost:8888/druid/indexer/v1/supervisor/${i}/status | $FORMATTER
+        echo ""
+  done
+elif [ "$COMMAND" == "query" ]; then
+  "$DIR"/bin/query "./data/druid/compact/query.sql"
 fi

@@ -3,7 +3,7 @@
 cd "$(dirname $0)" || exit
 
 curl -k -s -H "Accept:application/json" -X GET http://localhost:8083/connector-plugins >/dev/null 2>&1
-[ $? -ne 0 ] && echo "connector API is not yet available, aborting." && exit 1
+[ $? -ne 0 ] && echo "connector API is not yet available, check container heath 'docker compose ps'" && exit 1
 
 CREATE=$(cat <<EOF
 unset KAFKA_OPTS

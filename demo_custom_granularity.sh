@@ -1,5 +1,12 @@
 #!/bin/bash
 
+#
+#
+# For formatting JSON, jq is a great command line tool and is located at https://stedolan.github.io/jq
+#
+# Python's json.tool does a good job, but doesn't colorized like jq can.
+#
+#
 if [ -x "$(command -v jq)" ]; then
   FORMATTER=jq
 elif [ -x "$(command -v python)" ]; then
@@ -12,8 +19,8 @@ else
   FORMATTER="cat"
 fi
 
-DIR=$(dirname "$0")
-cd "$DIR" || exit
+DIR=$(dirname $0)
+cd $DIR || exit
 
 case "$1" in
 start)
@@ -30,25 +37,25 @@ status)
   ;;
 *)
   echo ""
-  echo "usage: $0 {start|query|shutdown}"
+  echo "usage: $0 {start|query|shutdown|status}"
   echo ""
   exit
   ;;
 esac
 
 declare -a FILES=(
-  "./data/druid/compare/order_non_rolled.json"
-  "./data/druid/compare/order_store_zipcode.json"
-  "./data/druid/compare/order_user_reward.json"
-  "./data/druid/compare/order_user_reward_store_zipcode.json"
+  "./data/druid/custom_granularity/order_custom_granularity.json"
 )
 
+#  "./data/druid/sketch/order_sketch_hll_8_12.json"
+
 declare -a DATASOURCES=(
-  "orders"
-  "orders_store_zipcode"
-  "orders_user_reward"
-  "orders_user_reward_store_zipcode"
+  "orders_custom_granularity"
 )
+
+#  "order_sketch_hll_8_12"
+
+#curl http://localhost:8888/druid/indexer/v1/supervisor/orders_custom_granularity/status
 
 if [ "$COMMAND" == "start" ]; then
   for i in "${FILES[@]}"; do
@@ -67,5 +74,5 @@ elif [ "$COMMAND" == "status" ]; then
         echo ""
   done
 elif [ "$COMMAND" == "query" ]; then
-  "$DIR"/bin/query "./data/druid/compare/compare.sql"
+  "$DIR"/bin/query "./data/druid/custom_granularity/query.sql"
 fi

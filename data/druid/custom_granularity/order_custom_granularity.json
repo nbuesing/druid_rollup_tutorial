@@ -23,7 +23,7 @@
       "maxTotalRows": 200000
     },
     "dataSchema": {
-      "dataSource": "orders_custom",
+      "dataSource": "orders_custom_granularity",
       "timestampSpec": {
         "column": "ORDER_TS",
         "format": "auto"
@@ -61,7 +61,7 @@
           {
             "type": "expression",
             "name": "__time",
-            "expression": "if(timestamp_extract(\"__time\", 'MINUTE') % 2, \"__time\" / 1000 * 1000, \"__time\" / 5000 * 5000)"
+            "expression": "if(timestamp_extract(\"__time\", 'MINUTE') % 2, \"__time\" / 6000 * 6000, \"__time\" / 20000 * 20000)"
           }
         ]
       }
