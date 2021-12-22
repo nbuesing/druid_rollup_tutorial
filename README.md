@@ -14,7 +14,7 @@ These examples showcase concepts around Apache Druid Rollups focusing on real-ti
 
 ## Start Containers 
 ```
-docker compose up -v
+docker compose up -d
 ```
 ## Create Data
 This creates the data into Kafka topics leveraging, Apache Kafka, Kafka Connect, Kafka Datagen Source Connector.

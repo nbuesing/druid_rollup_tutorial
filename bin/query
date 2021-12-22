@@ -6,6 +6,17 @@ else
   FORMATTER="cat"
 fi
 
+if [ -x "$(command -v jq)" ]; then
+  JSON_FORMATTER=jq
+elif [ -x "$(command -v python)" ]; then
+  if python -c "import json.tool" >/dev/null 2>&1; then
+    JSON_FORMATTER='python -m json.tool'
+  else
+    JSON_FORMATTER="cat"
+  fi
+else
+  JSON_FORMATTER="cat"
+fi
 
 
 if [ $# -eq 0 ]; then
@@ -40,10 +51,20 @@ echo ""
 cat $FILE
 echo ""
 echo ""
-#curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
-curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
+
+result=$(curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql)
+echo "$result" | $FORMATTER
 
 
+#if ! output=$(curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/); then
+#  echo $output
+#else
+#  echo "error"
+#  echo ""
+#  echo $output | $JSON_FORMATTER
+#fi
+#
+#echo $output
 
 #curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | $FORMATTER
 #curl -s -X POST -H "Content-Type:application/json" -d "$SQL" http://localhost:8888/druid/v2/sql/ | jq -r '.[] | [.USER_REWARD] | @csv' | awk -v FS="," 'BEGIN{print "ID\tName";print "============"}{printf "%s\t%s%s",$1,$2,ORS}'

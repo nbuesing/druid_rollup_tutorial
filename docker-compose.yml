@@ -1,9 +1,9 @@
 ---
 version: '3.7'
 
-networks:
-  default:
-    driver: bridge
+#networks:
+#  default:
+#    driver: bridge
 
 volumes:
   # zookeeper
