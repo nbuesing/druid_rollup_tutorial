@@ -95,7 +95,7 @@ services:
       - connect_kafka_data:/var/lib/kafka/data
       - kafka_secrets:/etc/kafka/secrets
       - connect_secrets:/etc/kafka-connect/secrets
-      - connect_data:/data:rwx
+      - connect_data:/data
     command: 
       - bash 
       - -c 
@@ -140,7 +140,7 @@ services:
     ports:
       - '8088:8088'
     volumes:
-      - ksql_data:/data:rwx
+      - ksql_data:/data
     environment:
       KSQL_HOST_NAME: ksql-server
       KSQL_LISTENERS: "http://0.0.0.0:8088"
