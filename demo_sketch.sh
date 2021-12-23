@@ -40,7 +40,7 @@ declare -a FILES=(
   "./data/druid/sketch/order_sketch_none.json"
   "./data/druid/sketch/order_sketch_theta_16.json"
   "./data/druid/sketch/order_sketch_theta_32.json"
-  "./data/druid/sketch/order_sketch_theta_16384.json"
+  "./data/druid/sketch/order_sketch_theta_2048.json"
   "./data/druid/sketch/order_sketch_hll_4_4.json"
   "./data/druid/sketch/order_sketch_hll_4_12.json"
 )
@@ -51,7 +51,7 @@ declare -a DATASOURCES=(
   "orders_sketch_none"
   "orders_sketch_theta_16"
   "orders_sketch_theta_32"
-  "orders_sketch_theta_16384"
+  "orders_sketch_theta_2048"
   "orders_sketch_hll_4_4"
   "orders_sketch_hll_4_12"
 )

@@ -23,7 +23,7 @@
       "maxTotalRows": 2000000
     },
     "dataSchema": {
-      "dataSource": "orders_sketch_theta_16384",
+      "dataSource": "orders_sketch_theta_2048",
       "timestampSpec": {
         "column": "ORDER_TS",
         "format": "auto"
@@ -45,7 +45,7 @@
           "type" : "thetaSketch",
           "name" : "UNIQUE_CODES",
           "fieldName" : "CODE",
-          "size" : "16384"
+          "size" : "2048"
         }
       ],
       "granularitySpec": {
