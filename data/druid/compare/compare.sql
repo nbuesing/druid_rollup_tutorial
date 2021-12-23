@@ -1,4 +1,4 @@
-SELECT 'orders'                          "Datasource",
+SELECT 'orders'                            "Datasource",
         SUM("COUNT")                       "Logical Count",
         COUNT("COUNT")                     "Physical Count",
         SUM("COUNT")/(COUNT("COUNT")*1.0)  "Rollup Factor"
